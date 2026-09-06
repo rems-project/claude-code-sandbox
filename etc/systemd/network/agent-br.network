@@ -1,0 +1,21 @@
+# Bridge network for connecting network sanboxes to.
+#
+
+[Match]
+Name=agent-br
+
+[Link]
+RequiredForOnline=no
+
+[Network]
+Description=Virtual bridge
+Address=10.10.0.1/16
+IPMasquerade=ipv4
+MulticastDNS=on
+ConfigureWithoutCarrier=true
+DHCPServer=yes
+
+[DHCPServer]
+## 10.10.199.0/24
+PoolOffset=50944
+PoolSize=256

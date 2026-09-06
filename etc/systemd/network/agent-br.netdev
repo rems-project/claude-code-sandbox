@@ -1,0 +1,7 @@
+# Bridge device for connecting network sanboxes to.
+#
+
+[NetDev]
+Name=agent-br
+Kind=bridge
+Description=Virtual bridge

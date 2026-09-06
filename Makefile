@@ -26,16 +26,21 @@ clean:
 	rm -f claude
 	@$(MAKE) -C netns-enter clean
 
-install: claude netns-enter/netns-enter etc/sysctl.d/99-claude-code-sandbox.conf etc/systemd/network/agent-br.network etc/systemd/network/agent-br.netdev etc/systemd/system/netns@.service
+install: claude netns-enter/netns-enter etc/sysctl.d/*
 	install -m 0755 -t /usr/local/bin claude
 	install -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
-	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/99-claude-code-sandbox.conf
-	install -D -m 0644 -t /usr/local/lib/systemd/network etc/systemd/network/agent-br.network etc/systemd/network/agent-br.netdev
-	install -D -m 0644 -t /usr/local/lib/systemd/system etc/systemd/system/netns@.service
+	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/*
+
+install-network: etc/systemd/system/* etc/systemd/network/*
+	install -D -m 0644 -t /usr/local/lib/systemd/network etc/systemd/network/*
+	install -D -m 0644 -t /usr/local/lib/systemd/system etc/systemd/system/*
 
 uninstall:
 	rm -f /usr/local/bin/claude
 	rm -f /usr/local/bin/netns-enter
 	rm -f /usr/local/lib/sysctl.d/99-claude-code-sandbox.conf
-	rm -f /usr/local/lib/systemd/network/agent-br.net*
+
+uninstall-network:
+	rm -f /usr/local/lib/systemd/network/agent-br.*
+	rm -f /usr/local/lib/systemd/network/bridging.*
 	rm -f /usr/local/lib/systemd/system/netns@.service

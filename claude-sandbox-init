@@ -1,0 +1,20 @@
+#!/bin/zsh
+
+# The file ~/.claude-sandbox-init is sourced (not executed) as part of the
+# sandbox script, and can manipulate the sandbox configuration before entering.
+#
+# Environment:
+# - `bwopt` — array of bwrap options
+# - `sdrun` — array of systemd-run options
+# - `cmd` — command to execute in the sandbox
+# - `r`/`w`/`ln`/`wdev` — functions (see the main script)
+
+## Add `~/.opam` as read/write:
+# bwopt+=( $(w ~/.opam) )
+
+## Add system-wide pacman files as read-only:
+# bwopt+=( $(r /etc/pacman.conf /etc/pacman.d /var/lib/pacman) )
+
+## Add the *current* directory as read/write, but only if it's located
+## somewhere inside `~/projects/`:
+# ! [[ $PWD/ == ~/projects/* ]] || bwopt+=( --tmpfs ~/projects $(w $PWD) )

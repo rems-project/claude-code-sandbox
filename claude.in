@@ -2,9 +2,10 @@
 ##
 # Sandbox wrapper, nominally meant to run LLM agents.
 #
-# Wraps the payload process in 2 layers:
+# Wraps the payload process in 3 layers:
 # - separate cgroup/slice (systemd-run)
 # - private user/process/cgroup/ipc/uts namespace (bwrap)
+# - syscall BPF filter (bwrap)
 #
 # If you run `claude --shell`, you get a shell.
 #
@@ -54,6 +55,10 @@ bwopt=(
 
 [[ -n $CLAUDE_SBX_PROJECT_DIR ]] && bwopt+=( --tmpfs $CLAUDE_SBX_PROJECT_DIR )
 
+bpf="
+"
+function seccomp() { base64 -d <<< $bpf|unzstd; }
+
 unset DBUS_SESSION_BUS_ADDRESS DESKTOP_SESSION DISPLAY GDMSESSION GDM_LANG GNOME_SETUP_DISPLAY INVOCATION_ID LISTEN_PIDFDID MANAGERPID MANAGERPIDFDID MEMORY_PRESSURE_WATCH MEMORY_PRESSURE_WRITE PICTURES SSH_AUTH_SOCK SYSTEMD_EXEC_PID TMUX TMUX_PANE TMUX_SERVER_ARGS WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_MENU_PREFIX XDG_SESSION_CLASS XDG_SESSION_DESKTOP XDG_SESSION_EXTRA_DEVICE_ACCESS XDG_SESSION_TYPE
 
 export XDG_DATA_DIRS=/usr/share
@@ -72,7 +77,7 @@ cmd=$CLAUDE_SBX_BINDIR/claude
 mkdir -m 0750 -p $CLAUDE_SBX_TMP $CLAUDE_SBX_HOME
 
 exec systemd-run $sdrun \
-  -- bwrap --args 9 9< <(printf $'%s\0' $bwopt) \
+  -- bwrap --args 9 9< <(printf $'%s\0' $bwopt) --seccomp 8 8< <(seccomp) \
   -- $cmd $@
 
 # vim: fdm=marker :

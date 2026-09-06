@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""
+seccompile — compile a Docker-style JSON seccomp profile.
+"""
+
+import sys, platform, base64
+import json, seccomp
+
+def constant(obj, strip, k): return getattr(obj, k.removeprefix(strip))
+
+def cmp(k): return constant(seccomp, "SCMP_CMP_", k)
+
+def arch(k): return constant(seccomp.Arch, "SCMP_ARCH_", k)
+
+def act(k, errnoRet = None):
+    if k == "SCMP_ACT_ERRNO":
+        return seccomp.ERRNO(errnoRet)
+    assert(errnoRet is None)
+    return constant(seccomp, "SCMP_ACT_", k)
+
+def goarch(k):
+    map = { 'x86_64': 'amd64', 'aarch64': 'arm64' }
+    k = k.removeprefix("SCMP_ARCH_").lower()
+    return map.get(k) or k
+
+# (...`minKernel`?)
+def match(rule, machine, caps):
+    machine = goarch(machine)
+    exc = rule.get('excludes') or {}
+    inc = rule.get('includes') or {}
+    return ( caps & set(exc.get('caps', [])) == set() and
+             caps >= set(inc.get('caps', []))         and
+             not machine in exc.get('arches', [])     and
+             machine in inc.get('arches', [machine]) )
+
+# Expand Docker-style extensions into OCI-standard format.
+def unextend(profile, machine, caps):
+    arches   = profile.get('architectures') or []
+    syscalls = profile.get('syscalls') or []
+    if 'archMap' in profile:
+        archMap = dict((e['architecture'],
+                       [e['architecture']] + (e.get('subArchitectures') or []))
+                       for e in profile['archMap'])
+        arches += archMap.get("SCMP_ARCH_" + machine) or []
+    syscalls = [rule for rule in syscalls or [] if match(rule, machine, caps)]
+
+    res = profile.copy()
+    res.update({ 'syscalls': syscalls, 'architectures': arches })
+    return res
+
+# example: https://github.com/containers/common/blob/main/pkg/seccomp/seccomp.json?raw=true
+# example: https://github.com/moby/profiles/blob/main/seccomp/default.json?raw=true
+#
+def build(profile, machine, caps):
+    profile = unextend(profile, machine = machine, caps = caps)
+
+    default = act(profile["defaultAction"], errnoRet = profile.get("defaultErrnoRet"))
+    ctx = seccomp.SyscallFilter(default)
+    ctx.remove_arch(getattr(seccomp.Arch, platform.machine().upper()))
+
+    for a in profile.get("architectures", []):
+        ctx.add_arch(arch(a))
+
+    def mkargs(args):
+        res = (args["index"], cmp(args["op"]), args["value"])
+        if "valueTwo" in args:
+            res = res + (args["valueTwo"], )
+        return res
+
+    for rule in profile["syscalls"]:
+        action = act(rule["action"], errnoRet = rule.get("errnoRet"))
+        for name in rule["names"]:
+            args = [seccomp.Arg(*mkargs(a)) for a in (rule.get("args") or [])]
+            ctx.add_rule(action, name, *args)
+
+    return ctx
+
+if __name__ == '__main__':
+
+    import argparse
+    ap = argparse.ArgumentParser(description = __doc__)
+    ap.add_argument("profile", default = '-', metavar = "FILE",
+                    help ="JSON seccomp profile (- for STDIN).")
+    ap.add_argument("--machine", default = platform.machine(),
+                    metavar = "ARCH", help = "target machine")
+    ap.add_argument("--caps", default = '', metavar = "CAPS",
+                    help = "comma-separated CAP_* list")
+    ap.add_argument("--output", default = '-', metavar = "FILE",
+                    help = "BPF output file (- for STDOUT)")
+    args = ap.parse_args()
+
+    if args.profile == '-':
+        profile = json.load(sys.stdin)
+    else:
+        with open(args.profile, 'r') as file:
+            profile = json.load(file)
+
+    machine = args.machine.upper()
+    caps = set(c.upper() for c in args.caps.split(','))
+    bpf = build(profile, machine = machine, caps = caps).export_bpf_mem()
+
+    with sys.stdout.buffer if args.output == '-' else open(args.output, 'wb') as f:
+        if f.isatty():
+            sys.stderr.write("Refusing to dump binary to TTY.\n")
+            sys.exit(1)
+        f.write(bpf)

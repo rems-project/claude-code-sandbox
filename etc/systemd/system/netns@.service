@@ -1,0 +1,19 @@
+[Unit]
+Description=Network namespace %i
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+
+ExecStart=ip netns add %i
+ExecStart=ip -n %i link set lo up
+ExecStart=sh -c "sysctl net.ipv4.ping_group_range|ip netns exec %i sysctl -wp -"
+ExecStart=ip link add veth0 netns %i type veth peer name %i
+# Systemd-networkd doesn't do netns; configure the inner iface here.
+ExecStart=ip -n %i link set veth0 up
+ExecStart=ip netns exec %i dhclient veth0
+
+ExecStopPost=ip netns del %i
+
+[Install]
+WantedBy=multi-user.target

@@ -26,10 +26,12 @@ clean:
 	rm -f claude
 	@$(MAKE) -C netns-enter clean
 
-install: claude netns-enter/netns-enter
+install: claude netns-enter/netns-enter etc/sysctl.d/99-claude-code-sandbox.conf
 	install -m 0755 -t /usr/local/bin claude
 	install -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
+	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/99-claude-code-sandbox.conf
 
 uninstall:
 	rm -f /usr/local/bin/claude
 	rm -f /usr/local/bin/netns-enter
+	rm -f /usr/local/lib/sysctl.d/99-claude-code-sandbox.conf

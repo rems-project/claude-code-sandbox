@@ -1,5 +1,11 @@
-# Where is claude?
+## A few knobs for the target system:
+##
+## Where is claude?
 CLAUDE_BIN := /opt/claude/bin
+## Claude's $HOME.
+CLAUDE_HOME := .claude-home
+## Network namespace.
+NETNS := agents
 
 # Seccomp filters are arch-dependent
 ARCH := $(shell uname -m)
@@ -9,7 +15,9 @@ all: claude netns-enter/netns-enter
 claude: claude.in seccomp/seccomp.$(ARCH)
 	cp $< $@
 	sed -i "/^bpf=/r seccomp/seccomp.$(ARCH)" $@
+	sed -i "/^CLAUDE_SBX_HOME=/s:DUMMY:$(CLAUDE_HOME):" $@
 	sed -i "/^CLAUDE_SBX_BINDIR=/s:DUMMY:$(CLAUDE_BIN):" $@
+	sed -i "/^CLAUDE_SBX_NETNS=/s:DUMMY:$(NETNS):" $@
 
 seccomp/seccomp.json:
 	curl -sf -o $@ https://raw.githubusercontent.com/containers/common/refs/heads/main/pkg/seccomp/seccomp.json

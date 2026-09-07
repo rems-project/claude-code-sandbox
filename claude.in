@@ -2,19 +2,24 @@
 ##
 # Sandbox wrapper, nominally meant to run LLM agents.
 #
-# Wraps the payload process in 3 layers:
+# Wraps the payload process in 4 layers:
 # - separate cgroup/slice (systemd-run)
+# - persistent network namespace (netns-enter)
 # - private user/process/cgroup/ipc/uts namespace (bwrap)
 # - syscall BPF filter (bwrap)
 #
 # If you run `claude --shell`, you get a shell.
 #
+# The network namespace is persistent and needs to be set up separately. The
+# Makefile tries to, but this is fiddly, so this script tests for its existence
+# and works without it.
+#
 set -e
 
 CLAUDE_SBX_BINDIR=${CLAUDE_SBX_BINDIR:-DUMMY}
-CLAUDE_SBX_HOME=${CLAUDE_SBX_HOME:-$HOME/.claude-home}
+CLAUDE_SBX_HOME=${CLAUDE_SBX_HOME:-$HOME/DUMMY}
 CLAUDE_SBX_TMP=${CLAUDE_SBX_TMP:-/tmp/claude-private-${UID}}
-CLAUDE_SBX_PROJECT_DIR=
+CLAUDE_SBX_NETNS=DUMMY
 
 zparseopts -D -E -A ARGS - -shell
 
@@ -23,61 +28,85 @@ function w { for p in $@; do echo --bind-try $p $p; done; }
 function ln { echo --symlink $1 $2; }
 function wdev { for p in $@; do echo --dev-bind-try $p $p; done; }
 
+# Bubblewrap options.
 bwopt=(
+  # separate as many namespaces as possible
   --unshare-user --unshare-pid --unshare-ipc --unshare-cgroup --unshare-uts
   --die-with-parent # --new-session
+  # prevent recursive user namespaces
   --disable-userns --assert-userns-disabled
 
+  # minimal API filesystems
   --proc /proc --dev /dev --tmpfs /dev/shm --mqueue /dev/mqueue
 
+  # bits of temporary directories
   --dir /var/tmp --dir /run/lock
   $(w /var/empty)
-
   $(ln ../run /var/run) $(ln ../run/lock /var/lock)
+
+  # selective systemd varlink access
   $(w /run/systemd/resolve)
 
-  $(r /usr/lib /usr/lib64)
+  # binaries
   $(ln usr/lib /lib) $(ln usr/lib64 /lib64)
+  $(r /usr/lib /usr/lib64)
+  $(r /bin /usr/{bin,libexec,share,include,sbin,src} /opt/claude)
 
-  $(r /usr/{bin,libexec,share,include,sbin,src} /opt/claude)
-  $(r usr/bin /bin)
-
+  # basic /etc files
   $(r /etc/{passwd,group,nsswitch.conf,resolv.conf,gai.conf,host.conf,ld.so*})
   $(r /etc/{localtime,os-release,machine-id})
   $(r /etc/{ca-certificates,pki,ssl})
   $(r /etc/alternatives)
-  $(r /etc/pacman.conf /etc/pacman.d /var/lib/pacman)
 
   --bind $CLAUDE_SBX_TMP /tmp
   --dir $XDG_RUNTIME_DIR
   --bind $CLAUDE_SBX_HOME $HOME
 )
 
-[[ -n $CLAUDE_SBX_PROJECT_DIR ]] && bwopt+=( --tmpfs $CLAUDE_SBX_PROJECT_DIR )
-
+# Compiled BPF syscall filter.
 bpf="
 "
 function seccomp() { base64 -d <<< $bpf|unzstd; }
 
+# Unset useless parts of environment.
 unset DBUS_SESSION_BUS_ADDRESS DESKTOP_SESSION DISPLAY GDMSESSION GDM_LANG GNOME_SETUP_DISPLAY INVOCATION_ID LISTEN_PIDFDID MANAGERPID MANAGERPIDFDID MEMORY_PRESSURE_WATCH MEMORY_PRESSURE_WRITE PICTURES SSH_AUTH_SOCK SYSTEMD_EXEC_PID TMUX TMUX_PANE TMUX_SERVER_ARGS WAYLAND_DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_MENU_PREFIX XDG_SESSION_CLASS XDG_SESSION_DESKTOP XDG_SESSION_EXTRA_DEVICE_ACCESS XDG_SESSION_TYPE
 
+# Set parts of environment.
 export XDG_DATA_DIRS=/usr/share
 path=(/bin /usr/bin /usr/local/bin)
 
-# claude
+# Claude variables.
 export DISABLE_UPDATES=1
 export DISABLE_INSTALLATION_CHECKS=1
 
-sdrun=(--quiet --user --scope --slice=agent)
-cmd=$CLAUDE_SBX_BINDIR/claude
-[[ -n ${ARGS[--shell]+yes} ]] && cmd=($SHELL --login)
-
+# Source the local script for additional fixups.
 [[ -f ~/.claude-sandbox-init ]] && source ~/.claude-sandbox-init
 
-mkdir -m 0750 -p $CLAUDE_SBX_TMP $CLAUDE_SBX_HOME
+# Open FDs for bwrap configuration.
+exec 8< <(seccomp)
+exec 9< <(printf $'%s\0' $bwopt)
 
-exec systemd-run $sdrun \
-  -- bwrap --args 9 9< <(printf $'%s\0' $bwopt) --seccomp 8 8< <(seccomp) \
-  -- $cmd $@
+# See if we can use network namespacing.
+if ip netns|grep -q $CLAUDE_SBX_NETNS; then
+  netns_cmd=(netns-enter --netns=$CLAUDE_SBX_NETNS --)
+else
+  print -P "Not using network namespacing: namespace %B${CLAUDE_SBX_NETNS}%b not active.\n"
+fi
+
+# Target command.
+if [[ -n ${ARGS[--shell]+yes} ]]; then
+  target_cmd=($SHELL --login)
+else
+  target_cmd=($CLAUDE_SBX_BINDIR/claude)
+fi
+
+cmd=(
+  systemd-run --quiet --user --scope --slice=agent --
+  $netns_cmd
+  bwrap --args 9 --seccomp 8 --
+  $target_cmd
+)
+mkdir -m 0700 -p $CLAUDE_SBX_TMP $CLAUDE_SBX_HOME
+exec $cmd
 
 # vim: fdm=marker :

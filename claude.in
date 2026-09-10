@@ -30,9 +30,9 @@ function wdev { for p in $@; do echo --dev-bind-try $p $p; done; }
 
 # Bubblewrap options.
 bwopt=(
+  --die-with-parent # --new-session
   # separate as many namespaces as possible
   --unshare-user --unshare-pid --unshare-ipc --unshare-cgroup --unshare-uts
-  --die-with-parent # --new-session
   # prevent recursive user namespaces
   --disable-userns --assert-userns-disabled
 

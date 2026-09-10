@@ -2,6 +2,6 @@
 #
 
 [NetDev]
-Name=agent-br
+Name=br-netns
 Kind=bridge
 Description=Virtual bridge

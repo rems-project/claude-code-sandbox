@@ -2,4 +2,4 @@
 Name=netns-*
 
 [Network]
-Bridge=agent-br
+Bridge=br-netns

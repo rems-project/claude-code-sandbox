@@ -55,6 +55,6 @@ uninstall:
 uninstall-network:
 	rm -f /usr/local/bin/netns-enter
 	rm -f /usr/local/etc/netns-enter
-	rm -f /usr/local/lib/systemd/network/agent-br.*
+	rm -f /usr/local/lib/systemd/network/br-netns.*
 	rm -f /usr/local/lib/systemd/network/bridging.*
 	rm -f /usr/local/lib/systemd/system/netns@.service

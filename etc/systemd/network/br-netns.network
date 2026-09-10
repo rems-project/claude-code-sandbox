@@ -2,7 +2,7 @@
 #
 
 [Match]
-Name=agent-br
+Name=br-netns
 
 [Link]
 RequiredForOnline=no

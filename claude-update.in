@@ -1,0 +1,19 @@
+#!/bin/zsh
+set -e
+
+CLAUDE_SBX_BINDIR=${CLAUDE_SBX_BINDIR:-DUMMY}
+
+declare -A archmap=(x86_64 x64 aarch64 arm64)
+arch=$archmap[$(uname -m)]
+
+url=https://downloads.claude.ai/claude-code-releases
+version=$(curl -s $url/latest)
+exe=$CLAUDE_SBX_BINDIR/claude.${version}
+
+if ! [[ -x $exe ]]; then
+  print -P "New version: %B${version}%b"
+  mkdir -p $CLAUDE_SBX_BINDIR
+  curl -# -o $exe "$url/$version/linux-${arch}/claude"
+  chmod +x $exe
+  ln -sf ${exe:t} "$CLAUDE_SBX_BINDIR/claude"
+fi

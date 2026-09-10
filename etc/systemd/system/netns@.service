@@ -1,5 +1,7 @@
 [Unit]
 Description=Network namespace %i
+Requires=systemd-networkd.service
+After=systemd-networkd.service
 
 [Service]
 Type=oneshot
@@ -8,10 +10,11 @@ RemainAfterExit=true
 ExecStart=ip netns add %i
 ExecStart=ip -n %i link set lo up
 ExecStart=sh -c "sysctl net.ipv4.ping_group_range|ip netns exec %i sysctl -wp -"
-ExecStart=ip link add veth0 netns %i type veth peer name %i
+ExecStart=ip link add veth0 netns %i type veth peer name netns-%i
 # Systemd-networkd doesn't do netns; configure the inner iface here.
 ExecStart=ip -n %i link set veth0 up
-ExecStart=ip netns exec %i dhclient veth0
+ExecStart=sh -c 'ip -n %i addr add "10.10.$(( 0x$(echo %i|sha1sum|cut -c1-2) )).$(( 0x$(echo %i|sha1sum|cut -c3-4) ))/16" dev veth0'
+ExecStart=ip -n %i route add default via 10.10.0.1
 
 ExecStopPost=ip netns del %i
 

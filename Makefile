@@ -39,11 +39,11 @@ clean:
 	@$(MAKE) -C netns-enter clean
 
 install: claude etc/sysctl.d/*
-	install -m 0755 -t /usr/local/bin claude
+	install -D -m 0755 -t /usr/local/bin claude
 	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/*
 
 install-network: netns-enter/netns-enter etc/netns-enter etc/systemd/system/* etc/systemd/network/*
-	install -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
+	install -D -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
 	install -D -m 0644 -t /usr/local/etc etc/netns-enter
 	install -D -m 0644 -t /usr/local/lib/systemd/network etc/systemd/network/*
 	install -D -m 0644 -t /usr/local/lib/systemd/system etc/systemd/system/*

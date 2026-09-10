@@ -94,11 +94,8 @@ else
 fi
 
 # Target command.
-if [[ -n ${ARGS[--shell]+yes} ]]; then
-  target_cmd=($SHELL --login)
-else
-  target_cmd=($CLAUDE_SBX_BINDIR/claude)
-fi
+target_cmd=($SHELL --login)
+[[ -z ${ARGS[--shell]+yes} ]] && target_cmd+=(-c "$CLAUDE_SBX_BINDIR/claude $@")
 
 cmd=(
   systemd-run --quiet --user --scope --slice=agent --

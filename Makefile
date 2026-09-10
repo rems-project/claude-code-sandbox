@@ -10,7 +10,7 @@ NETNS := agents
 # Seccomp filters are arch-dependent
 ARCH := $(shell uname -m)
 
-all: claude netns-enter/netns-enter
+all: claude netns-enter/netns-enter etc/netns-enter
 
 claude: claude.in seccomp/seccomp.$(ARCH)
 	cp $< $@
@@ -28,27 +28,33 @@ seccomp/seccomp.$(ARCH): seccomp/seccomp.json seccomp/seccompile
 netns-enter/netns-enter:
 	@$(MAKE) -C netns-enter netns-enter
 
+etc/netns-enter: etc/netns-enter.in
+	cp $< $@
+	sed -i "s:DUMMY:$(NETNS):" $@
+
 .PHONY: all clean install uninstall
 
 clean:
-	rm -f claude
+	rm -f claude etc/netns-enter
 	@$(MAKE) -C netns-enter clean
 
-install: claude netns-enter/netns-enter etc/sysctl.d/*
+install: claude etc/sysctl.d/*
 	install -m 0755 -t /usr/local/bin claude
-	install -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
 	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/*
 
-install-network: etc/systemd/system/* etc/systemd/network/*
+install-network: netns-enter/netns-enter etc/netns-enter etc/systemd/system/* etc/systemd/network/*
+	install -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
+	install -D -m 0644 -t /usr/local/etc etc/netns-enter
 	install -D -m 0644 -t /usr/local/lib/systemd/network etc/systemd/network/*
 	install -D -m 0644 -t /usr/local/lib/systemd/system etc/systemd/system/*
 
 uninstall:
 	rm -f /usr/local/bin/claude
-	rm -f /usr/local/bin/netns-enter
 	rm -f /usr/local/lib/sysctl.d/99-claude-code-sandbox.conf
 
 uninstall-network:
+	rm -f /usr/local/bin/netns-enter
+	rm -f /usr/local/etc/netns-enter
 	rm -f /usr/local/lib/systemd/network/agent-br.*
 	rm -f /usr/local/lib/systemd/network/bridging.*
 	rm -f /usr/local/lib/systemd/system/netns@.service

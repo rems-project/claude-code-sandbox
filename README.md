@@ -1,10 +1,12 @@
 # Sandbox #
 
 Runs [`bubblewrap`][bubblewrap] to contain a process by hiding your `$HOME`,
-other processes, and various other stuff. The point is to allow the jailed
-process to access whatever is installed on the system.
+other processes, and various other stuff. The point is to allow the sandboxed
+process to access whatever is installed on the system. This is in contrast with
+tools like Docker, which are meant to explicitly construct the software
+environment of the sandbox.
 
-The contained process is expected to be `claude`.
+The sandboxed process is expected to be `claude`.
 
 [bubblewrap]: https://github.com/containers/bubblewrap
 
@@ -14,24 +16,33 @@ Run `claude` to run Claude in a sandbox.
 
 Run `claude --shell` to start a shell instead, and inspect the environment.
 
+Run `claude-update` to update the agent executable.
+
 Claude sees `~/.claude-home` as `~`.
 
-Copy the example `claude-sandbox-init` to `~/.claude-sandbox-init` and tweak it
-to fine-tune what is visible inside the sandbox.
+### Tweak the sandbox ###
 
-Run `claude-update` to update the agent executable.
+Copy the example `claude-sandbox-init` to `~/.claude-sandbox-init` and tweak it
+to fine-tune what is visible inside the sandbox and make it fit your workflow.
+
+It contains examples for opening access to `~/.opam` and the like, or to the
+current working directory.
 
 ### How it works ###
 
-Bubblewrap enters private namespaces, and installs a seccomp syscall filter just
-to make sure. This creates a selective container which prevents access to user
-data. It is the same technique that everything from [Docker][docker-sbx] to
-[Firefox][firefox-sbx] worker processes uses for containment.
+Bubblewrap enters private [namespaces], and installs a
+[seccomp syscall filter][seccomp-bpf] just to make sure. This creates a
+selective container which prevents access to the user data. It is the same
+containment technique used by everything from [Docker][docker-sbx] to
+[Firefox][firefox-sbx] worker processes.
 
-Separately, the sandbox creates a persistent network namespace that the process
-can enter to hide the loopback device, abstract unix sockets, and the like. A
-firewall can further restrict the network.
+Separately, the sandbox creates a persistent [network namespace][netns] that the process
+can enter to hide the loopback device, the abstract unix sockets, and similar
+IPC primitives. The network sandbox can be further controlled with a firewall.
 
+[namespaces]: https://www.man7.org/linux/man-pages/man7/namespaces.7.html
+[seccomp-bpf]: https://www.kernel.org/doc/html/v4.19/userspace-api/seccomp_filter.html
+[netns]: https://www.man7.org/linux/man-pages/man7/network_namespaces.7.html
 [firefox-sbx]: https://wiki.mozilla.org/Security/Sandbox#Linux
 [docker-sbx]: https://docs.docker.com/get-started/docker-overview/#the-underlying-technology
 
@@ -68,18 +79,21 @@ make install-network
 - a suid executable (`netns-enter`) that allows unprivileged processes to enter
   network namespaces whitelisted in `/usr/local/etc/netns-enter`.
 
-Undo with `make uninstall-network`. After installing, reload networkd:
-
-```
-networkctl reload
-```
-
-...and enable and start the network sandbox:
+Undo with `make uninstall-network`. After installing, enable and start the
+network sandbox:
 
 ```
 systemctl enable --now netns@agents.service
 ```
 
+To confirm the network sandbox installation, you should get something like:
+
+```
+% networkctl|grep netns
+ NN br-netns     bridge   routable    configured
+ MM netns-agents ether    enslaved    configured
+
+```
 ### Open the firewall ###
 
 At this stage the network sandbox should *almost* work, but there is a chance

@@ -45,12 +45,15 @@ clean:
 install: claude claude-update etc/sysctl.d/*
 	install -D -m 0755 -t /usr/local/bin claude claude-update
 	install -D -m 0644 -t /usr/local/lib/sysctl.d etc/sysctl.d/*
+	sysctl --load etc/sysctl.d/* || true
 
 install-network: netns-enter/netns-enter etc/netns-enter etc/systemd/system/* etc/systemd/network/*
+	systemctl is-active systemd-networkd
 	install -D -o root -g root -m 4755 -t /usr/local/bin netns-enter/netns-enter
 	install -D -m 0644 -t /usr/local/etc etc/netns-enter
 	install -D -m 0644 -t /usr/local/lib/systemd/network etc/systemd/network/*
 	install -D -m 0644 -t /usr/local/lib/systemd/system etc/systemd/system/*
+	networkctl reload
 
 uninstall:
 	rm -f /usr/local/bin/claude
@@ -63,3 +66,4 @@ uninstall-network:
 	rm -f /usr/local/lib/systemd/network/br-netns.*
 	rm -f /usr/local/lib/systemd/network/bridging.*
 	rm -f /usr/local/lib/systemd/system/netns@.service
+	networkctl reload

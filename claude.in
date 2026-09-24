@@ -56,7 +56,7 @@ bwopt=(
   $(r /etc/{passwd,group,nsswitch.conf,resolv.conf,gai.conf,host.conf,ld.so*})
   $(r /etc/{localtime,os-release,machine-id})
   $(r /etc/{ca-certificates,pki,ssl})
-  $(r /etc/alternatives)
+  $(r /etc/{alternatives,profile,profile.d,zprofile,zsh*})
 
   --bind $CLAUDE_SBX_TMP /tmp
   --dir $XDG_RUNTIME_DIR

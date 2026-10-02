@@ -48,8 +48,8 @@ bwopt=(
   $(w /run/systemd/resolve)
 
   # binaries
-  $(ln usr/lib /lib) $(ln usr/lib64 /lib64)
-  $(r /usr/lib /usr/lib64 /bin /usr /nix /opt/claude)
+  $(ln usr/lib /lib) $(ln usr/lib64 /lib64) $(ln usr/bin /bin) $(ln usr/sbin sbin)
+  $(r /usr /nix /opt/claude)
 
   # basic /etc files
   $(r /etc/{passwd,group,nsswitch.conf,resolv.conf,gai.conf,host.conf,ld.so*})

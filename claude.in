@@ -49,8 +49,7 @@ bwopt=(
 
   # binaries
   $(ln usr/lib /lib) $(ln usr/lib64 /lib64)
-  $(r /usr/lib /usr/lib64)
-  $(r /bin /usr/{bin,libexec,share,include,sbin,src} /opt/claude)
+  $(r /usr/lib /usr/lib64 /bin /usr /nix /opt/claude)
 
   # basic /etc files
   $(r /etc/{passwd,group,nsswitch.conf,resolv.conf,gai.conf,host.conf,ld.so*})
@@ -61,6 +60,8 @@ bwopt=(
   --bind $CLAUDE_SBX_TMP /tmp
   --dir $XDG_RUNTIME_DIR
   --bind $CLAUDE_SBX_HOME $HOME
+
+  $(r ~/.nix-profile)
 )
 
 # Compiled BPF syscall filter.
@@ -73,7 +74,6 @@ unset DBUS_SESSION_BUS_ADDRESS DESKTOP_SESSION DISPLAY GDMSESSION GDM_LANG GNOME
 
 # Set parts of environment.
 export XDG_DATA_DIRS=/usr/share
-path=(/bin /usr/bin /usr/local/bin)
 
 # Claude variables.
 export DISABLE_UPDATES=1

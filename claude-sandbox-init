@@ -7,14 +7,26 @@
 # - `bwopt` — array of bwrap options
 # - `sdrun` — array of systemd-run options
 # - `cmd` — command to execute in the sandbox
-# - `r`/`w`/`ln`/`wdev` — functions (see the main script)
+# - `r`/`w`/`ln` — functions: read / read+write / link
 
-## Add `~/.opam` as read/write:
+##
+## Examples:
+##
+
+## Add the *current* dir read/write, but only if it's located somewhere under `~/projects/`:
+# ! [[ $PWD/ == ~/projects/* ]] || bwopt+=( --tmpfs ~/projects $(w $PWD) )
+
+## Add your full project dir read-only:
+# bwopt+=( $(r ~/projects) )
+
+## Add your `~/.opam` read/write:
 # bwopt+=( $(w ~/.opam) )
 
-## Add system-wide pacman files as read-only:
-# bwopt+=( $(r /etc/pacman.conf /etc/pacman.d /var/lib/pacman) )
+## YOLO: Write to my $HOME, I don't need sandboxing:
+# bwopt+=( $(w ~) )
 
-## Add the *current* directory as read/write, but only if it's located
-## somewhere inside `~/projects/`:
-# ! [[ $PWD/ == ~/projects/* ]] || bwopt+=( --tmpfs ~/projects $(w $PWD) )
+## Make the list of system packages readable — Debian:
+# bwopt+=( $(r /var/lib/dpkg) )
+
+## Make the list of system packages readable — Arch:
+# bwopt+=( $(r /etc/pacman.{conf,d} /var/lib/pacman) )

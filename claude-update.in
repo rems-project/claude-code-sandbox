@@ -14,6 +14,6 @@ if ! [[ -x $exe ]]; then
   print -P "New version: %B${version}%b"
   mkdir -p $CLAUDE_SBX_BINDIR
   curl -# -o $exe "$url/$version/linux-${arch}/claude"
-  chmod +x $exe
+  chmod 0755 $exe
   ln -sf ${exe:t} "$CLAUDE_SBX_BINDIR/claude"
 fi
